@@ -79,26 +79,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
-                  controller: _portCtl,
-                  decoration: const InputDecoration(
-                    labelText: 'Port',
-                    hintText: '1212',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (v) {
-                    final t = (v ?? '').trim();
-                    final n = int.tryParse(t);
-                    if (n == null || n <= 0 || n > 65535) return 'Invalid port';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
                   controller: _tokenCtl,
                   decoration: InputDecoration(
                     labelText: 'Auth token',
-                    hintText: 'michael-secret-token',
+                    hintText: 'See device sticker or serial output',
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -128,7 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'AP mode default: 192.168.4.1:1212. In STA mode, use the IP '
+                  'AP mode default: 192.168.4.1. In STA mode, use the IP '
                   'printed on the device serial.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
