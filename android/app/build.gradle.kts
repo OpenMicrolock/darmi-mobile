@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "ai.datahaus.microlock.michael_lock"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.2.12479018"
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../api/lock_api.dart';
-import '../branding.dart';
 import '../settings/settings_store.dart';
-import '../widgets/microlock_logo.dart';
-import 'provisioning_screen.dart';
+import 'settings_screen.dart';
 
 enum _Status { unknown, locked, unlocked }
 
@@ -24,8 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   _Status _state = _Status.unknown;
   bool _busy = false;
-  bool _showLastError = false;
-  String? _lastError;
+  String? _error;
   DateTime? _lastUpdated;
 
   LockApi _buildApi() => LockApi(
@@ -50,8 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_busy) return;
     setState(() {
       _busy = true;
-      _showLastError = false;
-      _lastError = null;
+      _error = null;
     });
     try {
       final s = await op();
@@ -61,20 +57,12 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } on UnauthorizedException {
       if (!mounted) return;
-      setState(() {
-        _lastError = 'Invalid token — please check your settings';
-        _showLastError = true;
-      });
+      setState(() => _error = 'Unauthorized — update your token');
+      await _openSettings();
     } on LockApiException catch (e) {
-      setState(() {
-        _lastError = e.message;
-        _showLastError = true;
-      });
+      setState(() => _error = e.message);
     } catch (e) {
-      setState(() {
-        _lastError = 'Connection failed';
-        _showLastError = true;
-      });
+      setState(() => _error = 'Unexpected error: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -87,63 +75,42 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openSettings() async {
     final updated = await Navigator.of(context).push<LockSettings>(
       MaterialPageRoute(
-        builder: (_) => ProvisioningScreen(
-          store: widget.store,
-          initial: _settings,
-        ),
+        builder: (_) => SettingsScreen(store: widget.store, initial: _settings),
       ),
     );
-
-    if (updated == null) return;
-
-    _api.dispose();
-    setState(() {
-      _settings = updated;
-      _api = _buildApi();
-      _state = _Status.unknown;
-      _showLastError = false;
-      _lastError = null;
-    });
-    _refresh();
-  }
-
-  Future<void> _openProvisioning() async {
-    final updated = await Navigator.of(context).push<LockSettings>(
-      MaterialPageRoute(
-        builder: (_) => ProvisioningScreen(
-          store: widget.store,
-          initial: _settings,
-        ),
-      ),
-    );
-
-    if (updated == null) return;
-
-    _api.dispose();
-    setState(() {
-      _settings = updated;
-      _api = _buildApi();
-      _state = _Status.unknown;
-      _showLastError = false;
-      _lastError = null;
-    });
+    if (updated != null) {
+      _api.dispose();
+      setState(() {
+        _settings = updated;
+        _api = _buildApi();
+        _state = _Status.unknown;
+        _error = null;
+      });
+      _refresh();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        title: const Text('Michael Lock'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+            onPressed: _openSettings,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.all(24),
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
-              // Status card
+              const SizedBox(height: 24),
               _StatusCard(
                 state: _state,
                 busy: _busy,
@@ -151,30 +118,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 host: _settings.host,
                 port: _settings.port,
               ),
-              const SizedBox(height: 20),
-              // Error banner
-              if (_lastError != null && _showLastError) ...[
-                Semantics(
-                  label: 'Error: $_lastError',
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: scheme.errorContainer,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+              const SizedBox(height: 24),
+              if (_error != null)
+                Card(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
                     child: Row(
                       children: [
                         Icon(
-                          Icons.error_outline_rounded,
-                          color: scheme.onErrorContainer,
-                          size: 24,
+                          Icons.error_outline,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onErrorContainer,
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            _lastError!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: scheme.onErrorContainer,
+                            _error!,
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onErrorContainer,
                             ),
                           ),
                         ),
@@ -182,102 +147,42 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-              ],
-              // Action buttons — large touch targets
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
-                    child: _ActionButton(
-                      icon: Icons.lock_rounded,
-                      label: 'Lock',
-                      color: scheme.primary,
-                      onColor: scheme.onPrimary,
-                      onPressed: _busy ? null : _lock,
-                      semanticHint: 'Lock the device',
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                      ),
+                      onPressed: _busy ? null : _unlock,
+                      icon: const Icon(Icons.lock_open),
+                      label: const Text('Unlock'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _ActionButton(
-                      icon: Icons.lock_open_rounded,
-                      label: 'Unlock',
-                      color: scheme.tertiary,
-                      onColor: scheme.onTertiary,
-                      onPressed: _busy ? null : _unlock,
-                      semanticHint: 'Unlock the device',
+                    child: FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                      ),
+                      onPressed: _busy ? null : _lock,
+                      icon: const Icon(Icons.lock),
+                      label: const Text('Lock'),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              // Refresh button
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
                 onPressed: _busy ? null : _refresh,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Refresh Status'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _openProvisioning,
-                icon: const Icon(Icons.wifi_tethering_rounded),
-                label: const Text('Set Up / Reconnect Device'),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh status'),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A large, accessible action button with icon and label.
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onColor,
-    required this.onPressed,
-    this.semanticHint,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final Color onColor;
-  final VoidCallback? onPressed;
-  final String? semanticHint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      hint: semanticHint,
-      child: Material(
-        color: color.withValues(alpha: onPressed == null ? 0.3 : 1.0),
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onPressed,
-          child: Container(
-            height: 80,
-            alignment: Alignment.center,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: onColor, size: 28),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: onColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
@@ -302,106 +207,59 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    final (icon, label, color, semanticStatus) = switch (state) {
-      _Status.locked => (
-        Icons.lock_rounded,
-        'LOCKED',
-        scheme.primary,
-        'Device is locked',
-      ),
-      _Status.unlocked => (
-        Icons.lock_open_rounded,
-        'UNLOCKED',
-        scheme.tertiary,
-        'Device is unlocked',
-      ),
-      _Status.unknown => (
-        Icons.help_outline_rounded,
-        'UNKNOWN',
-        scheme.outline,
-        'Device status unknown',
-      ),
+    final scheme = Theme.of(context).colorScheme;
+    final (icon, label, color) = switch (state) {
+      _Status.locked => (Icons.lock, 'LOCKED', scheme.primary),
+      _Status.unlocked => (Icons.lock_open, 'UNLOCKED', scheme.tertiary),
+      _Status.unknown => (Icons.help_outline, 'UNKNOWN', scheme.outline),
     };
 
-    return Semantics(
-      label: semanticStatus,
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: color.withValues(alpha: 0.3), width: 2),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-          child: Column(
-            children: [
-              // Animated status icon
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: Container(
-                  key: ValueKey(state),
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 40, color: color),
-                ),
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: color.withValues(alpha: 0.4), width: 2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+        child: Column(
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: Icon(
+                icon,
+                key: ValueKey(state),
+                size: 96,
+                color: color,
               ),
-              const SizedBox(height: 16),
-              // App name
-              Text(
-                appName,
-                style: theme.textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
               ),
-              const SizedBox(height: 8),
-              // Status label
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: Text(
-                  label,
-                  key: ValueKey(label),
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Connection info
-              Text(
-                '$host:$port',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Progress / last updated
-              SizedBox(
-                height: 20,
-                child: busy
-                    ? SizedBox(
-                        width: 120,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: const LinearProgressIndicator(),
-                        ),
-                      )
-                    : Text(
-                        lastUpdated == null
-                            ? 'Not fetched yet'
-                            : 'Updated ${_formatTime(lastUpdated!)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
-                        ),
-                      ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$host:$port',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 16,
+              child: busy
+                  ? const LinearProgressIndicator()
+                  : Text(
+                      lastUpdated == null
+                          ? 'Not fetched yet'
+                          : 'Updated ${_formatTime(lastUpdated!)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+            ),
+          ],
         ),
       ),
     );
