@@ -1,4 +1,4 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LockSettings {
   const LockSettings({required this.host, required this.port, required this.token});
@@ -11,22 +11,19 @@ class LockSettings {
 }
 
 class SettingsStore {
-  SettingsStore([FlutterSecureStorage? storage])
-    : _storage = storage ??
-          const FlutterSecureStorage(
-            aOptions: AndroidOptions(encryptedSharedPreferences: true),
-          );
+  SettingsStore([SharedPreferences? prefs]) : _prefs = prefs;
 
   static const _kHost = 'lock_host';
   static const _kPort = 'lock_port';
   static const _kToken = 'lock_token';
 
-  final FlutterSecureStorage _storage;
+  final SharedPreferences? _prefs;
 
   Future<LockSettings?> load() async {
-    final host = await _storage.read(key: _kHost);
-    final port = await _storage.read(key: _kPort);
-    final token = await _storage.read(key: _kToken);
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    final host = prefs.getString(_kHost);
+    final port = prefs.getString(_kPort);
+    final token = prefs.getString(_kToken);
     if (host == null || token == null) return null;
     return LockSettings(
       host: host,
@@ -36,14 +33,16 @@ class SettingsStore {
   }
 
   Future<void> save(LockSettings settings) async {
-    await _storage.write(key: _kHost, value: settings.host);
-    await _storage.write(key: _kPort, value: settings.port.toString());
-    await _storage.write(key: _kToken, value: settings.token);
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    await prefs.setString(_kHost, settings.host);
+    await prefs.setString(_kPort, settings.port.toString());
+    await prefs.setString(_kToken, settings.token);
   }
 
   Future<void> clear() async {
-    await _storage.delete(key: _kHost);
-    await _storage.delete(key: _kPort);
-    await _storage.delete(key: _kToken);
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    await prefs.remove(_kHost);
+    await prefs.remove(_kPort);
+    await prefs.remove(_kToken);
   }
 }
