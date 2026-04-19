@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../api/lock_api.dart';
+import '../branding.dart';
 import '../settings/settings_store.dart';
+import '../widgets/microlock_logo.dart';
 import 'settings_screen.dart';
 
 enum _Status { unknown, locked, unlocked }
@@ -22,7 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   _Status _state = _Status.unknown;
   bool _busy = false;
-  String? _error;
+  bool _showLastError = false;
+  String? _lastError;
   DateTime? _lastUpdated;
 
   LockApi _buildApi() => LockApi(
@@ -47,7 +50,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_busy) return;
     setState(() {
       _busy = true;
-      _error = null;
+      _showLastError = false;
+      _lastError = null;
     });
     try {
       final s = await op();
@@ -57,12 +61,20 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } on UnauthorizedException {
       if (!mounted) return;
-      setState(() => _error = 'Unauthorized — update your token');
-      await _openSettings();
+      setState(() {
+        _lastError = 'Invalid token — please check your settings';
+        _showLastError = true;
+      });
     } on LockApiException catch (e) {
-      setState(() => _error = e.message);
+      setState(() {
+        _lastError = e.message;
+        _showLastError = true;
+      });
     } catch (e) {
-      setState(() => _error = 'Unexpected error: $e');
+      setState(() {
+        _lastError = 'Connection failed';
+        _showLastError = true;
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -84,7 +96,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _settings = updated;
         _api = _buildApi();
         _state = _Status.unknown;
-        _error = null;
+        _showLastError = false;
+        _lastError = null;
       });
       _refresh();
     }
@@ -94,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Michael Lock'),
+        title: const MicrolockLogo(height: 28),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -119,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 port: _settings.port,
               ),
               const SizedBox(height: 24),
-              if (_error != null)
+              if (_lastError != null && _showLastError)
                 Card(
                   color: Theme.of(context).colorScheme.errorContainer,
                   child: Padding(
@@ -135,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            _error!,
+                            _lastError!,
                             style: TextStyle(
                               color: Theme.of(
                                 context,
@@ -151,17 +164,6 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                      ),
-                      onPressed: _busy ? null : _unlock,
-                      icon: const Icon(Icons.lock_open),
-                      label: const Text('Unlock'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
                     child: FilledButton.tonalIcon(
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 18),
@@ -169,6 +171,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       onPressed: _busy ? null : _lock,
                       icon: const Icon(Icons.lock),
                       label: const Text('Lock'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                      ),
+                      onPressed: _busy ? null : _unlock,
+                      icon: const Icon(Icons.lock_open),
+                      label: const Text('Unlock'),
                     ),
                   ),
                 ],
@@ -231,6 +244,13 @@ class _StatusCard extends StatelessWidget {
                 key: ValueKey(state),
                 size: 96,
                 color: color,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              appName,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 12),
