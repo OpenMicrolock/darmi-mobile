@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:michael_lock/main.dart';
+import 'package:microlock/main.dart';
 
 void main() {
   testWidgets('App renders first-run screen', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const MichaelLockApp());
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 900));
 
-    expect(find.text('Michael Lock'), findsWidgets);
-    expect(find.byIcon(Icons.lock), findsWidgets);
+    expect(find.text('Welcome to Microlock'), findsOneWidget);
+    expect(find.text('Set Up Device'), findsOneWidget);
+    expect(find.byIcon(Icons.settings_rounded), findsWidgets);
   });
 }

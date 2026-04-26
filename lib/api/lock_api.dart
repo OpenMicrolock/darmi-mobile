@@ -6,6 +6,12 @@ import 'package:http/http.dart' as http;
 
 enum DeviceLockState { locked, unlocked }
 
+class DeviceConfig {
+  const DeviceConfig({required this.hideSsidInApMode});
+
+  final bool hideSsidInApMode;
+}
+
 class UnauthorizedException implements Exception {
   const UnauthorizedException();
   @override
@@ -53,6 +59,28 @@ class LockApi {
   Future<DeviceLockState> unlock() => _action('/unlock');
   Future<DeviceLockState> status() => _action('/status');
 
+  Future<DeviceConfig> getConfig() async {
+    final res = await _send(
+      () =>
+          _client.post(_uri('/config/status'), headers: _headers, body: _body),
+    );
+    return _decodeConfig(res);
+  }
+
+  Future<DeviceConfig> updateConfig({required bool hideSsidInApMode}) async {
+    final res = await _send(
+      () => _client.post(
+        _uri('/config'),
+        headers: _headers,
+        body: jsonEncode({
+          'token': token,
+          'hide_ssid_in_ap_mode': hideSsidInApMode,
+        }),
+      ),
+    );
+    return _decodeConfig(res);
+  }
+
   Future<DeviceLockState> _action(String path) async {
     final res = await _send(
       () => _client.post(_uri(path), headers: _headers, body: _body),
@@ -87,6 +115,15 @@ class LockApi {
     } catch (_) {
       throw LockApiException('Invalid response body');
     }
+  }
+
+  DeviceConfig _decodeConfig(http.Response res) {
+    final data = _decode(res);
+    final hideSsid = data['hide_ssid_in_ap_mode'];
+    if (hideSsid is! bool) {
+      throw LockApiException('Unexpected config response');
+    }
+    return DeviceConfig(hideSsidInApMode: hideSsid);
   }
 
   void dispose() => _client.close();
