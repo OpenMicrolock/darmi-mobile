@@ -1,13 +1,33 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LockSettings {
-  const LockSettings({required this.host, required this.port, required this.token});
+  const LockSettings({
+    required this.host,
+    required this.port,
+    required this.token,
+    this.hideSsidInApMode = false,
+  });
 
   final String host;
   final int port;
   final String token;
+  final bool hideSsidInApMode;
 
   bool get isComplete => host.isNotEmpty && token.isNotEmpty && port > 0;
+
+  LockSettings copyWith({
+    String? host,
+    int? port,
+    String? token,
+    bool? hideSsidInApMode,
+  }) {
+    return LockSettings(
+      host: host ?? this.host,
+      port: port ?? this.port,
+      token: token ?? this.token,
+      hideSsidInApMode: hideSsidInApMode ?? this.hideSsidInApMode,
+    );
+  }
 }
 
 class SettingsStore {
@@ -16,6 +36,7 @@ class SettingsStore {
   static const _kHost = 'lock_host';
   static const _kPort = 'lock_port';
   static const _kToken = 'lock_token';
+  static const _kHideSsidInApMode = 'lock_hide_ssid_in_ap_mode';
 
   final SharedPreferences? _prefs;
 
@@ -29,6 +50,7 @@ class SettingsStore {
       host: host,
       port: int.tryParse(port ?? '') ?? 1212,
       token: token,
+      hideSsidInApMode: prefs.getBool(_kHideSsidInApMode) ?? false,
     );
   }
 
@@ -37,6 +59,7 @@ class SettingsStore {
     await prefs.setString(_kHost, settings.host);
     await prefs.setString(_kPort, settings.port.toString());
     await prefs.setString(_kToken, settings.token);
+    await prefs.setBool(_kHideSsidInApMode, settings.hideSsidInApMode);
   }
 
   Future<void> clear() async {
@@ -44,5 +67,6 @@ class SettingsStore {
     await prefs.remove(_kHost);
     await prefs.remove(_kPort);
     await prefs.remove(_kToken);
+    await prefs.remove(_kHideSsidInApMode);
   }
 }
