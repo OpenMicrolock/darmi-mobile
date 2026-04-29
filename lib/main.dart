@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'screens/home_screen.dart';
-import 'screens/settings_screen.dart';
+import 'screens/provisioning_screen.dart';
 import 'settings/settings_store.dart';
 
 void main() {
@@ -161,7 +161,7 @@ class _BootstrapState extends State<_Bootstrap> {
         }
         final settings = snapshot.data;
         if (settings == null || !settings.isComplete) {
-          return _FirstRun(store: _store);
+          return _FirstRun(store: _store, initial: settings);
         }
         return HomeScreen(store: _store, settings: settings);
       },
@@ -170,9 +170,10 @@ class _BootstrapState extends State<_Bootstrap> {
 }
 
 class _FirstRun extends StatefulWidget {
-  const _FirstRun({required this.store});
+  const _FirstRun({required this.store, this.initial});
 
   final SettingsStore store;
+  final LockSettings? initial;
 
   @override
   State<_FirstRun> createState() => _FirstRunState();
@@ -281,12 +282,11 @@ class _FirstRunState extends State<_FirstRun>
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      icon: const Icon(Icons.settings_rounded),
-                      label: const Text('Set Up Device'),
-                      onPressed: () => _openSettings(context),
+                      icon: const Icon(Icons.wifi_tethering_rounded),
+                      label: const Text('Set Up New Device'),
+                      onPressed: () => _openProvisioning(context),
                     ),
                   ),
-                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -296,13 +296,17 @@ class _FirstRunState extends State<_FirstRun>
     );
   }
 
-  Future<void> _openSettings(BuildContext context) async {
+
+  Future<void> _openProvisioning(BuildContext context) async {
     final saved = await Navigator.of(context).push<LockSettings>(
       MaterialPageRoute(
-        builder: (_) => SettingsScreen(store: widget.store),
+        builder: (_) => ProvisioningScreen(
+          store: widget.store,
+          initial: widget.initial,
+        ),
       ),
     );
-    if (saved != null && context.mounted) {
+    if (saved != null && context.mounted && saved.isComplete) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => HomeScreen(

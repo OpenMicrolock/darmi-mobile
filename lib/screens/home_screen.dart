@@ -4,7 +4,7 @@ import '../api/lock_api.dart';
 import '../branding.dart';
 import '../settings/settings_store.dart';
 import '../widgets/microlock_logo.dart';
-import 'settings_screen.dart';
+import 'provisioning_screen.dart';
 
 enum _Status { unknown, locked, unlocked }
 
@@ -87,20 +87,46 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openSettings() async {
     final updated = await Navigator.of(context).push<LockSettings>(
       MaterialPageRoute(
-        builder: (_) => SettingsScreen(store: widget.store, initial: _settings),
+        builder: (_) => ProvisioningScreen(
+          store: widget.store,
+          initial: _settings,
+        ),
       ),
     );
-    if (updated != null) {
-      _api.dispose();
-      setState(() {
-        _settings = updated;
-        _api = _buildApi();
-        _state = _Status.unknown;
-        _showLastError = false;
-        _lastError = null;
-      });
-      _refresh();
-    }
+
+    if (updated == null) return;
+
+    _api.dispose();
+    setState(() {
+      _settings = updated;
+      _api = _buildApi();
+      _state = _Status.unknown;
+      _showLastError = false;
+      _lastError = null;
+    });
+    _refresh();
+  }
+
+  Future<void> _openProvisioning() async {
+    final updated = await Navigator.of(context).push<LockSettings>(
+      MaterialPageRoute(
+        builder: (_) => ProvisioningScreen(
+          store: widget.store,
+          initial: _settings,
+        ),
+      ),
+    );
+
+    if (updated == null) return;
+
+    _api.dispose();
+    setState(() {
+      _settings = updated;
+      _api = _buildApi();
+      _state = _Status.unknown;
+      _showLastError = false;
+      _lastError = null;
+    });
   }
 
   @override
@@ -109,19 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final scheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: IconButton(
-              icon: const Icon(Icons.settings_rounded),
-              tooltip: 'Settings',
-              iconSize: 26,
-              onPressed: _openSettings,
-            ),
-          ),
-        ],
-      ),
+      appBar: AppBar(),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refresh,
@@ -202,6 +216,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: _busy ? null : _refresh,
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Refresh Status'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _openProvisioning,
+                icon: const Icon(Icons.wifi_tethering_rounded),
+                label: const Text('Set Up / Reconnect Device'),
               ),
             ],
           ),

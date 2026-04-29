@@ -6,10 +6,28 @@ import 'package:http/http.dart' as http;
 
 enum DeviceLockState { locked, unlocked }
 
-class DeviceConfig {
-  const DeviceConfig({required this.hideSsidInApMode});
+class ProvisioningConfig {
+  const ProvisioningConfig({
+    required this.wifiSsid,
+    required this.wifiConfigured,
+    required this.wifiHasPassword,
+    required this.apSsid,
+    required this.apBroadcastSsid,
+    required this.apHasPassword,
+    this.mode,
+    this.ip,
+    this.name,
+  });
 
-  final bool hideSsidInApMode;
+  final String wifiSsid;
+  final bool wifiConfigured;
+  final bool wifiHasPassword;
+  final String apSsid;
+  final bool apBroadcastSsid;
+  final bool apHasPassword;
+  final String? mode;
+  final String? ip;
+  final String? name;
 }
 
 class UnauthorizedException implements Exception {
@@ -59,26 +77,32 @@ class LockApi {
   Future<DeviceLockState> unlock() => _action('/unlock');
   Future<DeviceLockState> status() => _action('/status');
 
-  Future<DeviceConfig> getConfig() async {
-    final res = await _send(
-      () =>
-          _client.post(_uri('/config/status'), headers: _headers, body: _body),
-    );
-    return _decodeConfig(res);
+  Future<ProvisioningConfig> getProvisioningConfig() async {
+    final res = await _send(() => _client.get(_uri('/config'), headers: _headers));
+    return _decodeProvisioningConfig(res);
   }
 
-  Future<DeviceConfig> updateConfig({required bool hideSsidInApMode}) async {
+  Future<ProvisioningConfig> updateProvisioningConfig({
+    required String wifiSsid,
+    required String wifiPassword,
+    required String apSsid,
+    required String apPassword,
+    required bool apBroadcastSsid,
+  }) async {
     final res = await _send(
       () => _client.post(
         _uri('/config'),
         headers: _headers,
         body: jsonEncode({
-          'token': token,
-          'hide_ssid_in_ap_mode': hideSsidInApMode,
+          'wifi_ssid': wifiSsid,
+          'wifi_password': wifiPassword,
+          'ap_ssid': apSsid,
+          'ap_password': apPassword,
+          'ap_broadcast_ssid': apBroadcastSsid,
         }),
       ),
     );
-    return _decodeConfig(res);
+    return _decodeProvisioningConfig(res);
   }
 
   Future<DeviceLockState> _action(String path) async {
@@ -97,7 +121,7 @@ class LockApi {
       final res = await req().timeout(_timeout);
       if (res.statusCode == 401) throw const UnauthorizedException();
       if (res.statusCode < 200 || res.statusCode >= 300) {
-        throw LockApiException('HTTP ${res.statusCode}');
+        throw LockApiException(_describeError(res));
       }
       return res;
     } on TimeoutException {
@@ -117,13 +141,62 @@ class LockApi {
     }
   }
 
-  DeviceConfig _decodeConfig(http.Response res) {
+  ProvisioningConfig _decodeProvisioningConfig(http.Response res) {
     final data = _decode(res);
-    final hideSsid = data['hide_ssid_in_ap_mode'];
-    if (hideSsid is! bool) {
+    final wifi = data['wifi'];
+    final ap = data['ap'];
+    if (wifi is! Map<String, dynamic> || ap is! Map<String, dynamic>) {
       throw LockApiException('Unexpected config response');
     }
-    return DeviceConfig(hideSsidInApMode: hideSsid);
+
+    final wifiSsid = wifi['ssid'];
+    final wifiConfigured = wifi['configured'];
+    final wifiHasPassword = wifi['has_password'];
+    final apSsid = ap['ssid'];
+    final apBroadcastSsid = ap['broadcast_ssid'];
+    final apHasPassword = ap['has_password'];
+
+    if (wifiSsid is! String ||
+        wifiConfigured is! bool ||
+        wifiHasPassword is! bool ||
+        apSsid is! String ||
+        apBroadcastSsid is! bool ||
+        apHasPassword is! bool) {
+      throw LockApiException('Unexpected config response');
+    }
+
+    return ProvisioningConfig(
+      wifiSsid: wifiSsid,
+      wifiConfigured: wifiConfigured,
+      wifiHasPassword: wifiHasPassword,
+      apSsid: apSsid,
+      apBroadcastSsid: apBroadcastSsid,
+      apHasPassword: apHasPassword,
+      mode: data['mode'] as String?,
+      ip: data['ip'] as String?,
+      name: data['name'] as String?,
+    );
+  }
+
+  String _describeError(http.Response res) {
+    try {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final reason = data['reason'];
+      final error = data['error'];
+      if (reason is String && error is String) {
+        return '$error: $reason';
+      }
+      if (reason is String) {
+        return reason;
+      }
+      if (error is String) {
+        return error;
+      }
+    } catch (_) {
+      // Fall back to status-only error.
+    }
+
+    return 'HTTP ${res.statusCode}';
   }
 
   void dispose() => _client.close();
