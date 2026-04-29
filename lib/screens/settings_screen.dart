@@ -156,14 +156,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Text(
                     _hideSsidInApMode
-                        ? 'Your lock Wi-Fi is currently hidden.'
-                        : 'Your lock Wi-Fi is currently visible.',
+                        ? 'The lock Wi-Fi is hidden in AP mode.'
+                        : 'The lock Wi-Fi is visible in AP mode.',
                   ),
                   const SizedBox(height: 16),
                   SwitchListTile(
                     value: _hideSsidInApMode,
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Hide Wi-Fi name'),
+                    title: const Text('Hide SSID in AP mode'),
+                    subtitle: const Text(
+                      'Users must join the network manually from phone Wi-Fi settings.',
+                    ),
                     onChanged: (_savingApVisibility || _loadingLockSettings)
                         ? null
                         : handleToggle,

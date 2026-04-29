@@ -13,7 +13,8 @@ A Flutter mobile application for remotely controlling the Microlock ESP32 smart 
 - **Remote Lock/Unlock** - Control your smart lock from anywhere on the same network
 - **Real-time Status** - View current lock state with automatic refresh
 - **Token Authentication** - Secure API access with pre-shared token
-- **Persistent Settings** - Device connection saved locally
+- **Guided Provisioning** - One-step onboarding for Wi-Fi setup and AP fallback
+- **Persistent Settings** - Device connection and provisioning settings saved locally
 - **Dark Mode** - Automatic light/dark theme based on system preference
 - **Accessibility** - Large touch targets and semantic labels
 
@@ -38,10 +39,11 @@ poc-mobileapp/
 │   ├── main.dart              # App entry point & routing
 │   ├── branding.dart          # App name & logo asset constants
 │   ├── api/
-│   │   └── lock_api.dart     # HTTP client for lock API
+│   │   └── lock_api.dart      # HTTP client for lock + provisioning API
 │   ├── screens/
 │   │   ├── home_screen.dart   # Main lock/unlock UI
-│   │   └── settings_screen.dart # Device configuration form
+│   │   ├── provisioning_screen.dart # Guided Wi-Fi/AP setup
+│   │   └── settings_screen.dart # Host/token settings
 │   ├── settings/
 │   │   └── settings_store.dart # Persistent settings storage
 │   └── widgets/
@@ -70,11 +72,12 @@ flutter pub get
 
 ### 2. Configure Device Connection
 
-The app requires your lock device's:
+The app can now guide provisioning directly from the device AP.
 
-- **Host** - IP address (default: `192.168.4.1` in AP mode)
-- **Port** - API port (default: `1212`)
-- **Token** - Authentication token (printed on device sticker or serial output)
+- Use **Set Up New Device** for Wi-Fi onboarding.
+- Use **Change host or token** only if you already know the device IP and token.
+- Enter the device host shown by the app, device, or simulator.
+- API port: `1212`
 
 ### 3. Run the App
 
@@ -103,6 +106,15 @@ npm start
 - URL: `http://localhost:1212`
 - Token: `demo-token`
 
+Simulator provisioning values are configurable through environment variables:
+
+```bash
+MICROLOCK_AP_SSID=Device-1234 \
+MICROLOCK_AP_PASSWORD=<your-choice> \
+MICROLOCK_WIFI_SSID="" \
+npm start
+```
+
 ---
 
 ## API Reference
@@ -114,9 +126,11 @@ The mobile app communicates with the lock device over HTTP REST API.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Health check / ping |
+| GET | `/config` | Read current provisioning config |
 | POST | `/lock` | Lock the door |
 | POST | `/unlock` | Unlock the door |
 | POST | `/status` | Get current state |
+| POST | `/config` | Save Wi-Fi / AP provisioning settings |
 
 ### Request Format
 
@@ -156,6 +170,11 @@ Simple StatefulWidget with asynchronous operations. No external state library re
 - `lock_host` - Device IP/hostname
 - `lock_port` - Device port
 - `lock_token` - Auth token
+- `lock_wifi_ssid` - Saved target Wi-Fi SSID
+- `lock_wifi_password` - Saved target Wi-Fi password
+- `lock_ap_ssid` - Saved fallback AP SSID
+- `lock_ap_password` - Saved fallback AP password
+- `lock_ap_broadcast_ssid` - Whether the AP SSID is visible
 
 ### Error Handling
 

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,7 +10,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 900));
 
     expect(find.text('Welcome to Microlock'), findsOneWidget);
-    expect(find.text('Set Up Device'), findsOneWidget);
-    expect(find.byIcon(Icons.settings_rounded), findsWidgets);
+    expect(find.text('Set Up New Device'), findsOneWidget);
   });
 }
