@@ -1,5 +1,5 @@
-name: michael_lock
-description: "Flutter client for the Michael Lock ESP32 smart lock."
+name: microlock
+description: "Flutter client for the Microlock ESP32 smart lock."
 publish_to: 'none'
 version: 1.0.0+1
 

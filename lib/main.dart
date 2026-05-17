@@ -5,16 +5,16 @@ import 'screens/settings_screen.dart';
 import 'settings/settings_store.dart';
 
 void main() {
-  runApp(const MichaelLockApp());
+  runApp(const MicrolockApp());
 }
 
-class MichaelLockApp extends StatelessWidget {
-  const MichaelLockApp({super.key});
+class MicrolockApp extends StatelessWidget {
+  const MicrolockApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Michael Lock',
+      title: 'Microlock',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E7D32)),
@@ -87,7 +87,7 @@ class _FirstRun extends StatelessWidget {
                 const Icon(Icons.lock, size: 80),
                 const SizedBox(height: 16),
                 Text(
-                  'Michael Lock',
+                  'Microlock',
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 8),
@@ -101,13 +101,12 @@ class _FirstRun extends StatelessWidget {
                   icon: const Icon(Icons.settings),
                   label: const Text('Open settings'),
                   onPressed: () async {
-                    final saved = await Navigator.of(
-                      context,
-                    ).push<LockSettings>(
-                      MaterialPageRoute(
-                        builder: (_) => SettingsScreen(store: store),
-                      ),
-                    );
+                    final saved = await Navigator.of(context)
+                        .push<LockSettings>(
+                          MaterialPageRoute(
+                            builder: (_) => SettingsScreen(store: store),
+                          ),
+                        );
                     if (saved != null && context.mounted) {
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
