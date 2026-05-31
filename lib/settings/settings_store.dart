@@ -9,6 +9,7 @@ class LockSettings {
     required this.host,
     required this.port,
     required this.token,
+    this.deviceType = 'lock',
     this.wifiSsid = '',
     this.wifiPassword = '',
     this.apSsid = '',
@@ -24,6 +25,7 @@ class LockSettings {
   final String host;
   final int port;
   final String token;
+  final String deviceType;
   final String wifiSsid;
   final String wifiPassword;
   final String apSsid;
@@ -39,6 +41,7 @@ class LockSettings {
     String? host,
     int? port,
     String? token,
+    String? deviceType,
     String? wifiSsid,
     String? wifiPassword,
     String? apSsid,
@@ -52,6 +55,7 @@ class LockSettings {
       host: host ?? this.host,
       port: port ?? this.port,
       token: token ?? this.token,
+      deviceType: deviceType ?? this.deviceType,
       wifiSsid: wifiSsid ?? this.wifiSsid,
       wifiPassword: wifiPassword ?? this.wifiPassword,
       apSsid: apSsid ?? this.apSsid,
@@ -67,6 +71,7 @@ class LockSettings {
     'host': host,
     'port': port,
     'token': token,
+    'deviceType': deviceType,
     'wifiSsid': wifiSsid,
     'wifiPassword': wifiPassword,
     'apSsid': apSsid,
@@ -82,6 +87,7 @@ class LockSettings {
       host: (json['host'] as String?) ?? '',
       port: (json['port'] as num?)?.toInt() ?? defaultPort,
       token: (json['token'] as String?) ?? '',
+      deviceType: (json['deviceType'] as String?) ?? 'lock',
       wifiSsid: (json['wifiSsid'] as String?) ?? '',
       wifiPassword: (json['wifiPassword'] as String?) ?? '',
       apSsid: (json['apSsid'] as String?) ?? '',
@@ -152,7 +158,6 @@ class SettingsStore {
       name: settings.name.trim().isEmpty
           ? 'Unnamed device'
           : settings.name.trim(),
-      port: LockSettings.defaultPort,
     );
     final index = devices.indexWhere((device) => device.id == saved.id);
     if (index == -1) {

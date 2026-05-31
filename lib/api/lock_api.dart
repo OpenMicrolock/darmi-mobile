@@ -4,7 +4,11 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+enum DeviceType { lock, lamp }
+
 enum DeviceLockState { locked, unlocked }
+
+enum DeviceLampState { on, off }
 
 class ProvisioningConfig {
   const ProvisioningConfig({
@@ -49,6 +53,9 @@ class ProvisioningConfig {
       apHasPassword: (ap['has_password'] as bool?) ?? false,
     );
   }
+
+  DeviceType get deviceType =>
+      mode == 'lamp' ? DeviceType.lamp : DeviceType.lock;
 }
 
 class UnauthorizedException implements Exception {
@@ -69,6 +76,7 @@ class LockApi {
     required this.host,
     required this.port,
     required this.token,
+    this.deviceType = DeviceType.lock,
     http.Client? client,
     Duration timeout = const Duration(seconds: 5),
   }) : _client = client ?? http.Client(),
@@ -77,6 +85,7 @@ class LockApi {
   final String host;
   final int port;
   final String token;
+  final DeviceType deviceType;
   final http.Client _client;
   final Duration _timeout;
 
@@ -97,6 +106,11 @@ class LockApi {
   Future<DeviceLockState> lock() => _action('/lock');
   Future<DeviceLockState> unlock() => _action('/unlock');
   Future<DeviceLockState> status() => _action('/status');
+
+  Future<DeviceLampState> turnOn() => _lampAction('/on');
+  Future<DeviceLampState> turnOff() => _lampAction('/off');
+  Future<DeviceLampState> toggle() => _lampAction('/toggle');
+  Future<DeviceLampState> lampStatus() => _lampAction('/status');
 
   Future<ProvisioningConfig> getProvisioningConfig() async {
     final res = await _send(() => _client.get(_uri('/config')));
@@ -161,6 +175,17 @@ class LockApi {
     } catch (_) {
       throw LockApiException('Invalid response body');
     }
+  }
+
+  Future<DeviceLampState> _lampAction(String path) async {
+    final res = await _send(
+      () => _client.post(_uri(path), headers: _headers, body: _body),
+    );
+    final data = _decode(res);
+    final state = data['state'];
+    if (state == 'on') return DeviceLampState.on;
+    if (state == 'off') return DeviceLampState.off;
+    throw LockApiException('Unexpected state: $state');
   }
 
   void dispose() => _client.close();

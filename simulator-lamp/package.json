@@ -1,0 +1,11 @@
+{
+  "name": "lamp-simulator",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "PORT=1213 node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

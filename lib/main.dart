@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'screens/home_screen.dart';
-import 'screens/settings_screen.dart';
+import 'screens/setup_wizard.dart';
 import 'settings/settings_store.dart';
 
 void main() {
@@ -92,26 +92,27 @@ class _FirstRun extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Configure your device to get started.',
+                  'Configure your first device to get started.',
                   style: Theme.of(context).textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
-                  icon: const Icon(Icons.settings),
-                  label: const Text('Open settings'),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add device'),
                   onPressed: () async {
-                    final saved = await Navigator.of(context)
+                    final draft = await Navigator.of(context)
                         .push<LockSettings>(
                           MaterialPageRoute(
-                            builder: (_) => SettingsScreen(store: store),
+                            builder: (_) => const SetupWizard(),
                           ),
                         );
-                    if (saved != null && context.mounted) {
+                    if (draft != null && context.mounted) {
+                      await store.save(draft);
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
                           builder: (_) =>
-                              HomeScreen(store: store, settings: saved),
+                              HomeScreen(store: store, settings: draft),
                         ),
                       );
                     }
