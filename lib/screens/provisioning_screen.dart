@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../api/lock_api.dart';
 import '../settings/settings_store.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 
 class ProvisioningScreen extends StatefulWidget {
   const ProvisioningScreen({super.key, required this.store, this.initial});
@@ -25,19 +27,16 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
   bool _saving = false;
   bool _advancedOpen = false;
   String? _statusMessage;
+  bool _statusSuccess = true;
   ProvisioningConfig? _remoteConfig;
 
   @override
   void initState() {
     super.initState();
     final initial = widget.initial;
-    _hostCtl = TextEditingController(
-      text: initial?.host ?? '',
-    );
+    _hostCtl = TextEditingController(text: initial?.host ?? '');
     _wifiSsidCtl = TextEditingController(text: initial?.wifiSsid ?? '');
-    _wifiPasswordCtl = TextEditingController(
-      text: initial?.wifiPassword ?? '',
-    );
+    _wifiPasswordCtl = TextEditingController(text: initial?.wifiPassword ?? '');
     _apSsidCtl = TextEditingController(text: initial?.apSsid ?? '');
     _apPasswordCtl = TextEditingController(text: initial?.apPassword ?? '');
     _apBroadcastSsid = initial?.apBroadcastSsid ?? true;
@@ -56,8 +55,7 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
   }
 
   LockSettings _buildSettings() {
-    final base =
-        widget.initial ??
+    final base = widget.initial ??
         const LockSettings(
           host: '',
           port: LockSettings.defaultPort,
@@ -90,7 +88,10 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
     final host = _hostCtl.text.trim();
     if (host.isEmpty) return;
 
-    setState(() => _statusMessage = null);
+    setState(() {
+      _statusMessage = 'Fetching device configuration...';
+      _statusSuccess = true;
+    });
 
     final api = _buildApi();
     try {
@@ -108,14 +109,16 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
       setState(() {
         _remoteConfig = config;
         _apBroadcastSsid = config.apBroadcastSsid;
-        _statusMessage = 'Loaded current device config from $host.';
+        _statusMessage = 'Connected to $host. Device configuration loaded.';
+        _statusSuccess = true;
       });
 
       await widget.store.save(merged);
     } on LockApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _statusMessage = 'Could not load device config: ${e.message}';
+        _statusMessage = 'Could not load configuration: ${e.message}';
+        _statusSuccess = false;
       });
     } finally {
       api.dispose();
@@ -127,7 +130,8 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
 
     setState(() {
       _saving = true;
-      _statusMessage = null;
+      _statusMessage = 'Sending settings to device...';
+      _statusSuccess = true;
     });
 
     final api = _buildApi();
@@ -154,22 +158,22 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
       if (!mounted) return;
       setState(() {
         _remoteConfig = config;
-        _statusMessage = 'Configuration saved. The device is reconfiguring now.';
+        _statusMessage = 'Settings saved successfully. The device is reconfiguring.';
+        _statusSuccess = true;
       });
 
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Configuration saved. The device is reconnecting.'),
+          content: Text('Configuration saved. The device is reconnecting now.'),
         ),
       );
 
-      if (!mounted) return;
       Navigator.of(context).pop(saved);
     } on LockApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _statusMessage = 'Could not save device config: ${e.message}';
+        _statusMessage = 'Failed to update configuration: ${e.message}';
+        _statusSuccess = false;
       });
     } finally {
       api.dispose();
@@ -185,156 +189,247 @@ class _ProvisioningScreenState extends State<ProvisioningScreen> {
     final scheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Set Up Device'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Wi-Fi Configuration'),
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(20),
+            padding: AppSpacing.screenPadding,
             children: [
-              Text(
-                'Connect your phone to the device hotspot, then enter the Wi-Fi you want the lock to join.',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: scheme.onSurfaceVariant,
+              // Instructions Card
+              Card(
+                color: AppColors.primary.withValues(alpha: 0.05),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.cardBorder,
+                  side: const BorderSide(color: AppColors.outlineVariant),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.settings_input_antenna_rounded,
+                            color: AppColors.primaryLight,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(
+                            'Provisioning Guide',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Connect your phone to the ESP32 access point hotspot first, then enter the target Wi-Fi network credentials below.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.xl),
+
+              // Host Configuration Section
+              _buildSectionHeader('Device Connection'),
+              const SizedBox(height: AppSpacing.sm),
               TextFormField(
                 controller: _hostCtl,
                 decoration: const InputDecoration(
-                  labelText: 'Device host',
-                  hintText: 'Device AP IP or hostname',
+                  labelText: 'Device Host IP / Domain',
+                  hintText: 'e.g. 192.168.4.1',
                   prefixIcon: Icon(Icons.router_rounded),
                 ),
                 onFieldSubmitted: (_) => _loadFromDevice(),
                 validator: (value) {
-                  if ((value ?? '').trim().isEmpty) {
-                    return 'Required';
-                  }
+                  if ((value ?? '').trim().isEmpty) return 'Device host address is required';
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Target Wi-Fi',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: scheme.primary,
+              const SizedBox(height: AppSpacing.xl),
+
+              // Target Wi-Fi Section
+              _buildSectionHeader('Target Wi-Fi Network'),
+              const SizedBox(height: AppSpacing.sm),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _wifiSsidCtl,
+                        decoration: const InputDecoration(
+                          labelText: 'Wi-Fi SSID',
+                          hintText: 'Your Home Network Name',
+                          prefixIcon: Icon(Icons.wifi_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      TextFormField(
+                        controller: _wifiPasswordCtl,
+                        obscureText: true,
+                        decoration: InputDecoration(
+                          labelText: 'Wi-Fi Password',
+                          hintText: _remoteConfig?.wifiHasPassword == true
+                              ? 'Saved (Enter new to override)'
+                              : 'Password for your Wi-Fi network',
+                          prefixIcon: const Icon(Icons.password_rounded),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _wifiSsidCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Wi-Fi SSID',
-                  hintText: 'MyHomeWiFi',
-                  prefixIcon: Icon(Icons.wifi_rounded),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _wifiPasswordCtl,
-                decoration: InputDecoration(
-                  labelText: 'Wi-Fi password',
-                  hintText: _remoteConfig?.wifiHasPassword == true
-                      ? 'Enter a new password if needed'
-                      : 'Enter the target Wi-Fi password',
-                  prefixIcon: const Icon(Icons.password_rounded),
-                ),
-                obscureText: true,
-              ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
+
+              // Advanced AP Settings Section
               ExpansionTile(
                 initiallyExpanded: _advancedOpen,
                 onExpansionChanged: (value) => setState(() {
                   _advancedOpen = value;
                 }),
                 title: Text(
-                  'Advanced AP settings',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: scheme.primary,
+                  'Advanced Hotspot (AP) Settings',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: AppColors.primaryLight,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                subtitle: const Text('Optional'),
-                childrenPadding: const EdgeInsets.only(bottom: 12),
+                subtitle: const Text('Optional settings for the device access point'),
                 children: [
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   TextFormField(
                     controller: _apSsidCtl,
                     decoration: const InputDecoration(
-                      labelText: 'AP SSID',
-                      hintText: 'Device-Setup',
-                      prefixIcon: Icon(Icons.settings_input_antenna_rounded),
+                      labelText: 'Device AP SSID',
+                      prefixIcon: Icon(Icons.wifi_tethering_rounded),
                     ),
                     validator: (value) {
-                      if ((value ?? '').trim().isEmpty) {
-                        return 'Required';
+                      if (_advancedOpen && (value ?? '').trim().isEmpty) {
+                        return 'AP SSID is required';
                       }
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   TextFormField(
                     controller: _apPasswordCtl,
+                    obscureText: true,
                     decoration: InputDecoration(
-                      labelText: 'AP password',
+                      labelText: 'Device AP Password',
                       hintText: _remoteConfig?.apHasPassword == true
-                          ? 'Enter a new password if needed'
-                          : 'At least 8 characters or empty',
+                          ? 'Saved (Enter new to override)'
+                          : 'Must be at least 8 characters',
                       prefixIcon: const Icon(Icons.vpn_key_rounded),
                     ),
-                    obscureText: true,
                     validator: (value) {
-                      final length = (value ?? '').length;
-                      if (length > 0 && length < 8) {
-                        return 'Must be at least 8 characters or empty';
+                      if (_advancedOpen) {
+                        final len = (value ?? '').length;
+                        if (len > 0 && len < 8) {
+                          return 'Must be at least 8 characters or empty';
+                        }
                       }
                       return null;
                     },
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   SwitchListTile(
                     value: _apBroadcastSsid,
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Broadcast AP SSID'),
+                    title: const Text('Broadcast SSID'),
                     subtitle: Text(
                       _apBroadcastSsid
-                          ? 'The hotspot is visible.'
-                          : 'The hotspot is hidden.',
+                          ? 'The device setup hotspot is visible to others.'
+                          : 'The setup hotspot is hidden; requires manual connection.',
                     ),
                     onChanged: _saving
                         ? null
-                        : (value) => setState(() => _apBroadcastSsid = value),
+                        : (val) => setState(() => _apBroadcastSsid = val),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.xl),
+
+              // Status message banner
               if (_statusMessage != null) ...[
-                Text(
-                  _statusMessage!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: _statusSuccess
+                        ? AppColors.success.withValues(alpha: 0.1)
+                        : scheme.errorContainer,
+                    borderRadius: AppRadius.cardBorder,
+                    border: Border.all(
+                      color: _statusSuccess
+                          ? AppColors.success.withValues(alpha: 0.25)
+                          : scheme.error,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _statusSuccess ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
+                        color: _statusSuccess ? AppColors.success : scheme.error,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          _statusMessage!,
+                          style: TextStyle(
+                            color: _statusSuccess ? AppColors.success : scheme.onErrorContainer,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.xl),
               ],
-              const SizedBox(height: 24),
+
+              // Actions Button
               FilledButton.icon(
                 onPressed: _saving ? null : _submit,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                ),
                 icon: _saving
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                      : const Icon(Icons.send_rounded),
-                label: Text(_saving ? 'Saving...' : 'Save & Connect'),
+                    : const Icon(Icons.send_rounded),
+                label: Text(_saving ? 'Saving Config...' : 'Apply & Connect'),
               ),
+              const SizedBox(height: AppSpacing.lg),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: AppColors.primaryLight,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
       ),
     );
   }

@@ -22,6 +22,32 @@ class MicrolockLogo extends StatelessWidget {
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
         semanticLabel: appName,
+        errorBuilder: (context, error, stackTrace) {
+          return Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.lock_rounded, color: Color(0xFF2E7D4F), size: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      appName,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: height * 0.2,
+                        fontFamily: 'Outfit',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
